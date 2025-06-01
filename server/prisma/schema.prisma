@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Model untuk Jurusan/Departemen
+model Jurusan {
+  id          Int      @id @default(autoincrement())
+  nama        String   // Nama jurusan
+  kode        String   @unique // Kode jurusan
+  fakultas    String   // Fakultas tempat jurusan berada
+  jenjang     String   @default("S1") // S1, S2, S3, D3, D4
+  kaprodi     String?  // Nama Ketua Program Studi/Jurusan
+  deskripsi   String?  @db.Text // Deskripsi jurusan
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relasi dengan program studi
+  programStudi ProgramStudi[]
+
+  @@map("jurusan")
+}
+
+model ProgramStudi {
+  id          Int      @id @default(autoincrement())
+  kode        String   @unique // Kode program studi (misal: IF, SI, TI)
+  nama        String   // Nama lengkap program studi
+  fakultas    String   // Fakultas tempat prodi berada
+  jenjang     String   // S1, S2, S3, D3, D4
+  akreditasi  String?  // A, B, C, Baik Sekali, dll
+  kaprodi     String?  // Nama Ketua Program Studi
+  jurusanId   Int?     // Foreign key ke Jurusan (optional)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relasi dengan jurusan
+  jurusan     Jurusan? @relation(fields: [jurusanId], references: [id])
+  
+  // Relasi dengan mahasiswa
+  mahasiswa   Mahasiswa[]
+
+  @@map("program_studi")
+}
+
+model Mahasiswa {
+  id             Int           @id @default(autoincrement())
+  nama           String
+  nim            String        @unique
+  programStudi   String        // Nama program studi (string langsung)
+  programStudiId Int?          // Foreign key ke ProgramStudi (optional untuk relasi)
+  angkatan       String
+  semester       Int 
+  noTelp         String
+  email          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relasi dengan program studi (optional)
+  programStudiRef ProgramStudi? @relation(fields: [programStudiId], references: [id])
+
+  // Relasi dengan pengajuan SA
+  pengajuanSA    PengajuanSA[]
+
+  @@map("mahasiswa")
+}
+
+model Dosen {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  nip       String   @unique
+  email     String?
+  noTelp    String?
+  fakultas  String?  // Tambah fakultas dosen
+  bidang    String?  // Bidang keahlian dosen
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relasi dengan pengajuan SA
+  pengajuanSA PengajuanSA[]
+
+  @@map("dosen")
+}
+
+model PengajuanSA {
+  id                Int      @id @default(autoincrement())
+  mahasiswaId       Int
+  dosenId           Int?     // Dosen pembimbing SA
+  buktiPembayaran   String?  // path/url file bukti pembayaran (optional)
+  tanggalPengajuan  DateTime @default(now())
+  status            StatusSA @default(PROSES_PENGAJUAN)
+  nilaiAkhir        Float?   // nilai setelah SA selesai
+  keterangan        String?  @db.Text // catatan tambahan, ubah ke TEXT untuk keterangan panjang
+  tanggalSelesai    DateTime? // Tanggal selesai SA
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relasi
+  mahasiswa Mahasiswa @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+  dosen     Dosen?    @relation(fields: [dosenId], references: [id])
+
+  @@map("pengajuan_sa")
+}
+
+enum StatusSA {
+  PROSES_PENGAJUAN  // Baru diajukan, menunggu persetujuan kaprodi
+  DISETUJUI         // Sudah disetujui kaprodi, menunggu penugasan dosen
+  DALAM_PROSES_SA   // Sudah disetujui, sedang proses SA dengan dosen
+  SELESAI           // SA sudah selesai, nilai sudah keluar
+  DITOLAK           // Pengajuan ditolak
+}
